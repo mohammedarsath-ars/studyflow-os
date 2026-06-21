@@ -4,7 +4,6 @@ import { useTaskStore } from '../stores/taskStore';
 import { useSubjectStore } from '../stores/subjectStore';
 import type { Priority } from '../types';
 import { X } from 'lucide-react';
-import supabase from '../lib/supabase';
 
 interface QuickAddModalProps {
   isOpen: boolean;
@@ -62,30 +61,31 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({ isOpen, onClose })
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
 
-    const taskTitle = title.trim();
-    const { error } = await supabase
-      .from('tasks')
-      .insert({ title: taskTitle, completed: false })
-      .select('id, created_at')
-      .single();
+    setIsSubmitting(true);
+    setSubmitError(null);
 
-    if (error) {
-      console.error('Supabase task insert failed:', error.message);
+    try {
+      const taskTitle = title.trim();
+      await addTask({
+        title: taskTitle,
+        subject,
+        priority,
+        dueDate,
+        status: 'pending',
+      });
+      onClose();
+    } catch (error) {
+      setSubmitError((error as Error)?.message ?? 'Unable to create task');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    addTask({
-      title: taskTitle,
-      subject,
-      priority,
-      dueDate,
-      status: 'pending',
-    });
-
-    onClose();
   };
 
   return (
@@ -217,11 +217,15 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({ isOpen, onClose })
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-sm font-medium text-text-primary bg-accent hover:bg-accent-hover rounded-lg shadow-lg hover:shadow-accent/10 transition-all focus-visible:ring-2 focus-visible:ring-indigo-500 outline-none"
+                  disabled={isSubmitting}
+                  className="px-5 py-2 text-sm font-medium text-text-primary bg-accent hover:bg-accent-hover rounded-lg shadow-lg hover:shadow-accent/10 transition-all focus-visible:ring-2 focus-visible:ring-indigo-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Add Task
+                  {isSubmitting ? 'Adding…' : 'Add Task'}
                 </button>
               </div>
+              {submitError && (
+                <p className="text-xs text-danger-color mt-2">{submitError}</p>
+              )}
             </form>
           </motion.div>
         </div>

@@ -6,14 +6,17 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CheckSquare, Search, Plus, Edit2, Trash2, Calendar, Check } from 'lucide-react';
 import { parseISO, isBefore, isToday, startOfDay } from 'date-fns';
 import { AnimatePresence, motion } from 'framer-motion';
-import supabase from '../lib/supabase';
 
 interface TaskManagerProps {
   onOpenQuickAdd: () => void;
 }
 
 export const TaskManager: React.FC<TaskManagerProps> = ({ onOpenQuickAdd }) => {
-  const { tasks, updateTask, deleteTask, completeTask } = useTaskStore();
+  const tasks = useTaskStore((state) => state.tasks);
+  const loadTasks = useTaskStore((state) => state.loadTasks);
+  const updateTask = useTaskStore((state) => state.updateTask);
+  const deleteTask = useTaskStore((state) => state.deleteTask);
+  const completeTask = useTaskStore((state) => state.completeTask);
   const subjects = useSubjectStore((state) => state.subjects);
 
   // Filter States
@@ -36,41 +39,25 @@ export const TaskManager: React.FC<TaskManagerProps> = ({ onOpenQuickAdd }) => {
 
   const todayStr = new Date().toISOString().split('T')[0];
   const startOfToday = startOfDay(new Date());
-  const defaultSubjectId = subjects[0]?.id ?? '';
-  const defaultDueDate = todayStr;
+  const [isLoading, setIsLoading] = useState(true);
+  const [pageError, setPageError] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadRemoteTasks = async () => {
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('id, title, completed, created_at')
-        .order('created_at', { ascending: false });
+    const fetchTasks = async () => {
+      setIsLoading(true);
+      setPageError(null);
 
-      if (error) {
-        console.error('Failed to load tasks from Supabase:', error.message);
-        return;
+      try {
+        await loadTasks();
+      } catch (error) {
+        setPageError((error as Error)?.message ?? 'Failed to load tasks.');
+      } finally {
+        setIsLoading(false);
       }
-
-      if (!data || data.length === 0) {
-        return;
-      }
-
-      const mappedTasks: Task[] = data.map((row) => ({
-        id: row.id,
-        title: row.title,
-        subject: defaultSubjectId,
-        priority: 'medium',
-        dueDate: defaultDueDate,
-        status: row.completed ? 'done' : 'pending',
-        createdAt: row.created_at ?? new Date().toISOString(),
-        completedAt: row.completed ? row.created_at ?? new Date().toISOString() : undefined,
-      }));
-
-      useTaskStore.setState({ tasks: mappedTasks });
     };
 
-    loadRemoteTasks();
-  }, [defaultSubjectId, defaultDueDate]);
+    fetchTasks();
+  }, [loadTasks]);
 
   // Filter Logic
   const filteredTasks = tasks.filter((task) => {
@@ -105,17 +92,22 @@ export const TaskManager: React.FC<TaskManagerProps> = ({ onOpenQuickAdd }) => {
   };
 
   // Save inline editor changes
-  const handleSaveEdit = (id: string) => {
+  const handleSaveEdit = async (id: string) => {
     if (!editTitle.trim()) return;
-    updateTask(id, {
-      title: editTitle.trim(),
-      subject: editSubject,
-      priority: editPriority,
-      dueDate: editDueDate,
-      status: editStatus,
-      completedAt: editStatus === 'done' ? new Date().toISOString() : undefined,
-    });
-    setExpandedTaskId(null);
+
+    try {
+      await updateTask(id, {
+        title: editTitle.trim(),
+        subject: editSubject,
+        priority: editPriority,
+        dueDate: editDueDate,
+        status: editStatus,
+        completedAt: editStatus === 'done' ? new Date().toISOString() : undefined,
+      });
+      setExpandedTaskId(null);
+    } catch (error) {
+      setPageError((error as Error)?.message ?? 'Unable to save changes.');
+    }
   };
 
   // Trigger delete dialog
@@ -125,12 +117,20 @@ export const TaskManager: React.FC<TaskManagerProps> = ({ onOpenQuickAdd }) => {
   };
 
   // Confirm delete
-  const handleConfirmDelete = () => {
-    if (taskToDelete) {
-      deleteTask(taskToDelete);
-      setTaskToDelete(null);
+  const handleConfirmDelete = async () => {
+    if (!taskToDelete) {
+      setDeleteConfirmOpen(false);
+      return;
     }
-    setDeleteConfirmOpen(false);
+
+    try {
+      await deleteTask(taskToDelete);
+      setTaskToDelete(null);
+    } catch (error) {
+      setPageError((error as Error)?.message ?? 'Unable to delete task.');
+    } finally {
+      setDeleteConfirmOpen(false);
+    }
   };
 
   // Date styling helper
@@ -257,7 +257,37 @@ export const TaskManager: React.FC<TaskManagerProps> = ({ onOpenQuickAdd }) => {
       </div>
 
       {/* Task List Groups */}
-      {!hasAnyTasks ? (
+      {isLoading ? (
+        <div className="card text-center py-16 flex flex-col items-center justify-center border-dashed border-border-subtle">
+          <div className="w-12 h-12 rounded-full bg-bg-elevated border border-border-subtle flex items-center justify-center mb-4 text-text-muted animate-spin">
+            <CheckSquare size={20} className="stroke-1 text-indigo-400" />
+          </div>
+          <h3 className="text-sm font-bold text-text-primary mb-1">Loading tasks…</h3>
+          <p className="text-xs text-text-secondary max-w-xs leading-relaxed">
+            Fetching your tasks from Supabase.
+          </p>
+        </div>
+      ) : pageError ? (
+        <div className="card text-center py-16 flex flex-col items-center justify-center border border-danger-color/20 rounded-2xl">
+          <h3 className="text-sm font-bold text-danger-color mb-2">Unable to load tasks</h3>
+          <p className="text-xs text-text-secondary max-w-xs leading-relaxed mb-4">
+            {pageError}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setIsLoading(true);
+              setPageError(null);
+              loadTasks()
+                .catch((error) => setPageError((error as Error)?.message ?? 'Unable to load tasks.'))
+                .finally(() => setIsLoading(false));
+            }}
+            className="px-4 py-2 bg-accent text-on-dark rounded-lg text-xs font-semibold"
+          >
+            Retry
+          </button>
+        </div>
+      ) : !hasAnyTasks ? (
         /* Premium Empty State */
         <div className="card text-center py-16 flex flex-col items-center justify-center border-dashed border-border-subtle">
           <div className="w-12 h-12 rounded-full bg-bg-elevated border border-border-subtle flex items-center justify-center mb-4 text-text-muted animate-pulse">

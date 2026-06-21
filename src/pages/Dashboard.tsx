@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTaskStore } from '../stores/taskStore';
 import { useSessionStore } from '../stores/sessionStore';
@@ -37,6 +37,7 @@ const stagger = {
 export const Dashboard: React.FC<DashboardProps> = ({ onOpenQuickAdd }) => {
   const navigate = useNavigate();
   const tasks = useTaskStore((state) => state.tasks);
+  const loadTasks = useTaskStore((state) => state.loadTasks);
   const completeTask = useTaskStore((state) => state.completeTask);
   const sessions = useSessionStore((state) => state.sessions);
   const subjects = useSubjectStore((state) => state.subjects);
@@ -69,6 +70,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenQuickAdd }) => {
   const completedTodayCount = tasks.filter(
     (t) => t.status === 'done' && t.completedAt && isToday(parseISO(t.completedAt))
   ).length;
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
+  const [isDashboardLoading, setIsDashboardLoading] = useState(false);
 
   const completionPercent = todaysTasks.length > 0 ? Math.round((completedToday.length / todaysTasks.length) * 100) : 0;
 
@@ -122,6 +125,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenQuickAdd }) => {
     : pendingToday.length === 0
       ? 'All caught up today — keep the streak alive with a quick deeper session.'
       : `You have ${pendingToday.length} pending task${pendingToday.length > 1 ? 's' : ''}. Start with the top priority.`;
+
+  useEffect(() => {
+    const fetchTasks = async () => {
+      setIsDashboardLoading(true);
+      setDashboardError(null);
+
+      try {
+        await loadTasks();
+      } catch (error) {
+        setDashboardError((error as Error)?.message ?? 'Unable to load tasks.');
+      } finally {
+        setIsDashboardLoading(false);
+      }
+    };
+
+    fetchTasks();
+  }, [loadTasks]);
 
   const handleStartTimer = () => {
     const ok = startTimer();
@@ -210,6 +230,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenQuickAdd }) => {
               <p className="max-w-2xl text-base leading-7 text-text-secondary">
                 Your flagship productivity command center for sessions, study metrics, and task momentum. Stay aligned with your highest-impact work.
               </p>
+              {(isDashboardLoading || dashboardError) && (
+                <div className="rounded-2xl border border-border-subtle bg-bg-elevated px-4 py-3 text-sm text-text-secondary">
+                  {isDashboardLoading ? 'Loading latest tasks…' : `Task sync issue: ${dashboardError}`}
+                </div>
+              )}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3">

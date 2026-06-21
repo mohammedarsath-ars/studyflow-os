@@ -4,6 +4,7 @@ import { useTaskStore } from '../stores/taskStore';
 import { useSubjectStore } from '../stores/subjectStore';
 import type { Priority } from '../types';
 import { X } from 'lucide-react';
+import supabase from '../lib/supabase';
 
 interface QuickAddModalProps {
   isOpen: boolean;
@@ -61,12 +62,23 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({ isOpen, onClose })
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
 
+    const taskTitle = title.trim();
+    const { error } = await supabase
+      .from('tasks')
+      .insert({ title: taskTitle, completed: false })
+      .select('id, created_at')
+      .single();
+
+    if (error) {
+      console.error('Supabase task insert failed:', error.message);
+    }
+
     addTask({
-      title: title.trim(),
+      title: taskTitle,
       subject,
       priority,
       dueDate,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTaskStore } from '../stores/taskStore';
 import { useSubjectStore } from '../stores/subjectStore';
 import type { Priority, TaskStatus, Task } from '../types';
@@ -6,6 +6,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CheckSquare, Search, Plus, Edit2, Trash2, Calendar, Check } from 'lucide-react';
 import { parseISO, isBefore, isToday, startOfDay } from 'date-fns';
 import { AnimatePresence, motion } from 'framer-motion';
+import supabase from '../lib/supabase';
 
 interface TaskManagerProps {
   onOpenQuickAdd: () => void;
@@ -35,6 +36,41 @@ export const TaskManager: React.FC<TaskManagerProps> = ({ onOpenQuickAdd }) => {
 
   const todayStr = new Date().toISOString().split('T')[0];
   const startOfToday = startOfDay(new Date());
+  const defaultSubjectId = subjects[0]?.id ?? '';
+  const defaultDueDate = todayStr;
+
+  useEffect(() => {
+    const loadRemoteTasks = async () => {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('id, title, completed, created_at')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Failed to load tasks from Supabase:', error.message);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        return;
+      }
+
+      const mappedTasks: Task[] = data.map((row) => ({
+        id: row.id,
+        title: row.title,
+        subject: defaultSubjectId,
+        priority: 'medium',
+        dueDate: defaultDueDate,
+        status: row.completed ? 'done' : 'pending',
+        createdAt: row.created_at ?? new Date().toISOString(),
+        completedAt: row.completed ? row.created_at ?? new Date().toISOString() : undefined,
+      }));
+
+      useTaskStore.setState({ tasks: mappedTasks });
+    };
+
+    loadRemoteTasks();
+  }, [defaultSubjectId, defaultDueDate]);
 
   // Filter Logic
   const filteredTasks = tasks.filter((task) => {

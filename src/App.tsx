@@ -31,12 +31,15 @@ import { OtpVerification } from './pages/auth/OtpVerification';
 // Brand Screens
 import { SplashScreen } from './components/SplashScreen';
 import { AnimatePresence, motion } from 'framer-motion';
+import type { Easing } from 'framer-motion';
+
+const easeInOut: Easing = [0.4, 0, 0.2, 1] as unknown as Easing;
 
 const pageTransition = {
   initial: { opacity: 0, y: 15 },
   animate: { opacity: 1, y: 0 },
   exit: { opacity: 0, y: -15 },
-  transition: { duration: 0.35, ease: [0.4, 0, 0.2, 1] },
+  transition: { duration: 0.35, ease: easeInOut },
 };
 
 const AppContent: React.FC<{
@@ -230,16 +233,16 @@ export const App: React.FC = () => {
 
   // Global Timer ticking loop
   useEffect(() => {
-    let intervalId: NodeJS.Timeout | null = null;
+    let intervalId: ReturnType<typeof setTimeout> | null = null;
     if (timerStatus === 'running') {
       intervalId = setInterval(() => {
         tick();
-      }, 1000);
+      }, 1000) as unknown as ReturnType<typeof setTimeout>;
     } else {
-      if (intervalId) clearInterval(intervalId);
+      if (intervalId) clearInterval(intervalId as any);
     }
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      if (intervalId) clearInterval(intervalId as any);
     };
   }, [timerStatus, tick]);
 

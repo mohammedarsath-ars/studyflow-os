@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { Easing } from 'framer-motion';
+
+const easeInOut: Easing = [0.4, 0, 0.2, 1] as unknown as Easing;
+const easeOut: Easing = [0.34, 1.56, 0.64, 1] as unknown as Easing;
 import { Zap } from 'lucide-react';
 
 export const SplashScreen: React.FC = () => {
@@ -25,7 +29,7 @@ export const SplashScreen: React.FC = () => {
         <motion.div
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+          transition={{ duration: 0.6, ease: easeInOut }}
           className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-bg-primary select-none pointer-events-none"
         >
           {/* Subtle Ambient Radial Glow */}
@@ -35,7 +39,7 @@ export const SplashScreen: React.FC = () => {
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: [0.8, 1.1, 1], opacity: 1 }}
-            transition={{ duration: 1.2, ease: [0.34, 1.56, 0.64, 1] }}
+            transition={{ duration: 1.2, ease: easeOut }}
             className="relative flex items-center justify-center w-24 h-24 rounded-[28px] bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-2xl shadow-indigo-500/25"
           >
             {/* Animated drawing lines inside logo */}

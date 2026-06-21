@@ -50,12 +50,13 @@ export const useTaskStore = create<TaskStore>()(
           throw new Error(error.message);
         }
 
-        if (!data) {
-          return;
-        }
+        if (!data) return;
+
+        // Defensive: filter out any malformed rows that could cause runtime errors
+        const validRows = data.filter((row) => row && typeof row.id === 'string' && typeof row.title === 'string');
 
         set((state) => ({
-          tasks: data.map((row) =>
+          tasks: validRows.map((row) =>
             mapRowToTask(row, state.tasks.find((task) => task.id === row.id))
           ),
         }));
@@ -128,7 +129,7 @@ export const useTaskStore = create<TaskStore>()(
           throw new Error(error.message);
         }
 
-        set((state) => ({ tasks: state.tasks.filter((task) => task.id !== id) }));
+        set((state) => ({ tasks: state.tasks.filter((task) => Boolean(task) && task.id !== id) }));
       },
       completeTask: async (id) => {
         const state = get();

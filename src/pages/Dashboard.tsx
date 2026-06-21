@@ -36,7 +36,8 @@ const stagger = {
 
 export const Dashboard: React.FC<DashboardProps> = ({ onOpenQuickAdd }) => {
   const navigate = useNavigate();
-  const tasks = useTaskStore((state) => state.tasks);
+  const rawTasks = useTaskStore((state) => state.tasks);
+  const tasks = rawTasks.filter(Boolean) as any[];
   const loadTasks = useTaskStore((state) => state.loadTasks);
   const completeTask = useTaskStore((state) => state.completeTask);
   const sessions = useSessionStore((state) => state.sessions);

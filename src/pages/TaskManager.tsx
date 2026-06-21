@@ -12,7 +12,8 @@ interface TaskManagerProps {
 }
 
 export const TaskManager: React.FC<TaskManagerProps> = ({ onOpenQuickAdd }) => {
-  const tasks = useTaskStore((state) => state.tasks);
+  const rawTasks = useTaskStore((state) => state.tasks);
+  const tasks = rawTasks.filter(Boolean) as Task[];
   const loadTasks = useTaskStore((state) => state.loadTasks);
   const updateTask = useTaskStore((state) => state.updateTask);
   const deleteTask = useTaskStore((state) => state.deleteTask);
